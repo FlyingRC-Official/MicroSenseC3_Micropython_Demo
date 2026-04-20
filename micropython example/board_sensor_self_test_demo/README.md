@@ -54,6 +54,18 @@ Examples of warnings:
 - humidity that had to be clamped back into `0..100 %RH`
 - light sensor sample where every channel is zero
 
+## Custom Scan Behavior
+
+This demo does not rely on MicroPython's built-in `machine.I2C.scan()` for sensor detection.
+
+The built-in scan only checks the standard `0x08..0x77` address range, which can omit the board's `QMC6309` at `0x7C`.
+To avoid false failures, this demo uses a custom scan helper that:
+
+- probes the standard `0x08..0x77` range
+- then uses a board-specific fallback read for `QMC6309` at `0x7C`
+
+Because of that, the startup scan shown by this demo is a custom scan result, not the raw built-in `scan()` output.
+
 ## How To Run
 
 1. Copy `board_sensors.py` and `main.py` to the board filesystem.
@@ -83,22 +95,22 @@ Expected onboard sensors:
   SPA06-003       0x77
   SHT40           0x44
   LTR-381RGB-01   0x53
-Detected I2C addresses: 0x44, 0x53, 0x6A, 0x77, 0x7C
+Detected I2C addresses (custom scan): 0x44, 0x53, 0x6A, 0x7C
 Running startup checks...
 PASS QMI8658A 0x6A id=0x05 temp=24.8C accel=(0.00,0.01,1.00) gyro=(0.1,0.0,-0.1)
 PASS QMC6309 0x7C id=0x90 mag=(0.012,-0.006,0.421)G
-PASS SPA06-003 0x77 id=0x11 temp=25.1C pressure=1008.54hPa
+FAIL SPA06-003 0x77 missing from I2C scan
 PASS SHT40 0x44 temp=24.7C humidity=46.8%RH
 PASS LTR-381RGB-01 0x53 id=0xC2 ir=142 rgb=(231,198,167)
-OVERALL: PASS
-Live monitor: 5 sensor(s), update every 2000 ms
-12ms QMI8658A temp=24.8C accel=(0.00,0.01,1.00) gyro=(0.1,0.0,-0.1) | QMC6309 mag=(0.012,-0.006,0.421)G | SPA06-003 temp=25.1C pressure=1008.54hPa | SHT40 temp=24.7C humidity=46.8%RH | LTR-381RGB-01 ir=142 rgb=(231,198,167)
+OVERALL: FAIL
+Live monitor: 4 sensor(s), update every 2000 ms
+12ms QMI8658A temp=24.8C accel=(0.00,0.01,1.00) gyro=(0.1,0.0,-0.1) | QMC6309 mag=(0.012,-0.006,0.421)G | SHT40 temp=24.7C humidity=46.8%RH | LTR-381RGB-01 ir=142 rgb=(231,198,167)
 ```
 
 ## Success Looks Like
 
 - The script starts and prints the expected sensor list.
-- The I2C scan shows the expected onboard addresses.
+- The custom I2C scan shows the expected onboard addresses that respond on this board.
 - Each healthy onboard sensor reports `PASS`.
 - The overall summary is `PASS` when all sensors are working.
 - The live monitor continues printing compact sensor updates every two seconds.
@@ -113,3 +125,5 @@ If a sensor is damaged or missing, the demo should still continue and show the f
 - The `LTR-381RGB-01` demo output reports raw IR and RGB counts, not calibrated lux or color temperature.
 - The `SPA06-003` pressure reading depends on local air pressure and environment, so only broad sanity checks are applied.
 - The startup logic avoids interactive movement or light-change checks so the demo stays beginner-friendly and repeatable.
+- `QMC6309` is detected through the demo's custom scan path because MicroPython's built-in `machine.I2C.scan()` does not report `0x7C`.
+- The custom scan intentionally avoids treating reserved high-address responses such as `0x7E` as normal sensor hits.

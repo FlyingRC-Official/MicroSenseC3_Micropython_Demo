@@ -2,7 +2,7 @@ from machine import I2C, Pin
 import sys
 import time
 
-from board_sensors import FAIL, PASS, WARN
+from board_sensors import FAIL, PASS, WARN, custom_i2c_scan
 from board_sensors import test_ltr381, test_qmc6309, test_qmi8658a, test_sht40, test_spa06
 
 
@@ -60,7 +60,7 @@ def print_banner():
 
 def print_scan_results(i2c):
     try:
-        detected = sorted(i2c.scan())
+        detected = custom_i2c_scan(i2c)
     except OSError as exc:
         print("I2C scan failed:", exc)
         flush_stdout()
@@ -70,7 +70,7 @@ def print_scan_results(i2c):
         detected_text = ", ".join([format_address(address) for address in detected])
     else:
         detected_text = "none"
-    print("Detected I2C addresses:", detected_text)
+    print("Detected I2C addresses (custom scan):", detected_text)
     flush_stdout()
     return detected
 

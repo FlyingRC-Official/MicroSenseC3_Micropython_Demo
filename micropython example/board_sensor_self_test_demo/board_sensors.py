@@ -5,6 +5,8 @@ import time
 PASS = "PASS"
 WARN = "WARN"
 FAIL = "FAIL"
+QMC6309_FALLBACK_ADDRESS = 0x7C
+QMC6309_EXPECTED_CHIP_ID = 0x90
 
 
 def _make_result(name, address, status, details, sample=None, reader=None):
@@ -20,9 +22,32 @@ def _make_result(name, address, status, details, sample=None, reader=None):
     return result
 
 
+def custom_i2c_scan(i2c):
+    found = set()
+
+    # Scan the normal 7-bit range first, then apply a board-specific
+    # fallback for the known high reserved-address QMC6309 device.
+    for address in range(0x08, 0x78):
+        try:
+            i2c.writeto(address, b"")
+            found.add(address)
+        except OSError:
+            pass
+
+    # QMC6309 on this board responds at 0x7C even though built-in scan omits it.
+    try:
+        chip_id = i2c.readfrom_mem(QMC6309_FALLBACK_ADDRESS, 0x00, 1)[0]
+        if chip_id == QMC6309_EXPECTED_CHIP_ID:
+            found.add(QMC6309_FALLBACK_ADDRESS)
+    except OSError:
+        pass
+
+    return sorted(found)
+
+
 def _address_present(i2c, address):
     try:
-        return address in i2c.scan()
+        return address in custom_i2c_scan(i2c)
     except OSError:
         return False
 
@@ -151,7 +176,7 @@ class QMC6309:
     CTRL1 = 0x0A
     CTRL2 = 0x0B
 
-    EXPECTED_CHIP_ID = 0x90
+    EXPECTED_CHIP_ID = QMC6309_EXPECTED_CHIP_ID
 
     def __init__(self, i2c, address=0x7C):
         self.i2c = i2c
